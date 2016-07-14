@@ -1,0 +1,31 @@
+# encoding: UTF-8
+
+FROM <%= ENV.fetch('FROM') %>
+MAINTAINER The Blue Beluga <admin@bluebeluga.io>
+
+LABEL name="logstash"
+LABEL description="Alpine Linux Base with Logstash"
+LABEL version="<%= ENV.fetch('LOGSTASH_VERSION') %>"
+
+ENV LOGSTASH_VERSION <%= ENV.fetch('LOGSTASH_VERSION') %>
+ENV LOGSTASH_SHA256 <%= ENV.fetch('LOGSTASH_SHA256') %>
+
+RUN apk-install curl openjdk7-jre-base ruby ca-certificates java-cacerts git bash && \
+    JAVA_TRUSTSTORE=/usr/lib/jvm/java-1.7-openjdk/jre/lib/security/cacerts && \
+    SYSTEM_TRUSTSTORE=/etc/ssl/certs/java/cacerts && \
+    rm "${JAVA_TRUSTSTORE}" && \
+    ln -s "${SYSTEM_TRUSTSTORE}" "${JAVA_TRUSTSTORE}" && \
+    curl -sSLO "https://download.elastic.co/logstash/logstash/logstash-${LOGSTASH_VERSION}.tar.gz" && \
+    echo "${LOGSTASH_SHA256}  logstash-${LOGSTASH_VERSION}.tar.gz" | sha256sum -c - && \
+    tar zxf "logstash-${LOGSTASH_VERSION}.tar.gz" && \
+    rm "logstash-${LOGSTASH_VERSION}.tar.gz" && \
+    apk del curl && \
+    rm -f /var/cache/apk/*
+
+COPY files/Gemfile "/logstash-${LOGSTASH_VERSION}/Gemfile"
+COPY files/logstash-checkconfig.sh /logstash-checkconfig.sh
+COPY files/logstash.config.erb /logstash.config.erb
+COPY files/logstash.sh /logstash.sh
+RUN "/logstash-${LOGSTASH_VERSION}/bin/logstash-plugin" install --no-verify
+EXPOSE 80
+CMD ["/logstash.sh"]
